@@ -1,8 +1,9 @@
-// client/AudioRecorder.java
 package client;
 
 import javax.sound.sampled.*;
 import java.io.ByteArrayOutputStream;
+import java.time.Duration;
+import java.time.Instant;
 
 public class AudioRecorder {
     private static final float SAMPLE_RATE = 44100;
@@ -14,6 +15,7 @@ public class AudioRecorder {
     private TargetDataLine line;
     private boolean isRecording;
     private ByteArrayOutputStream out;
+    private Instant recordingStartTime;
 
     public void startRecording() {
         try {
@@ -26,6 +28,7 @@ public class AudioRecorder {
 
             isRecording = true;
             out = new ByteArrayOutputStream();
+            recordingStartTime = Instant.now();
 
             new Thread(() -> {
                 byte[] buffer = new byte[4096];
@@ -41,10 +44,37 @@ public class AudioRecorder {
         }
     }
 
-    public byte[] stopRecording() {
+    public RecordingResult stopRecording() {
         isRecording = false;
-        line.stop();
-        line.close();
-        return out.toByteArray();
+        if (line != null) {
+            line.stop();
+            line.close();
+        }
+        Duration duration = Duration.between(recordingStartTime, Instant.now());
+        return new RecordingResult(out.toByteArray(), duration.toMillis());
+    }
+
+    public static class RecordingResult {
+        private final byte[] audioData;
+        private final long durationMs;
+
+        public RecordingResult(byte[] audioData, long durationMs) {
+            this.audioData = audioData;
+            this.durationMs = durationMs;
+        }
+
+        public byte[] getAudioData() {
+            return audioData;
+        }
+
+        public long getDurationMs() {
+            return durationMs;
+        }
+
+        public String getFormattedDuration() {
+            long seconds = (durationMs / 1000) % 60;
+            long minutes = (durationMs / (1000 * 60)) % 60;
+            return String.format("%02d:%02d", minutes, seconds);
+        }
     }
 }
