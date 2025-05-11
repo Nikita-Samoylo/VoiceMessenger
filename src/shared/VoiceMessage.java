@@ -18,12 +18,6 @@ public class VoiceMessage extends Message {
         return durationMs;
     }
 
-    public String getFormattedDuration() {
-        long seconds = (durationMs / 1000) % 60;
-        long minutes = (durationMs / (1000 * 60)) % 60;
-        return String.format("%02d:%02d", minutes, seconds);
-    }
-
     @Override
     public String toJson() {
         return String.format("{\"type\":\"voice\",\"sender\":\"%s\",\"size\":%d,\"duration\":%d}",

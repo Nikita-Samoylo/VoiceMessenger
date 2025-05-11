@@ -6,14 +6,12 @@ import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import org.json.JSONObject;
 
 @ClientEndpoint
 public class WebSocketClient {
     private Session session;
     private MessageHandler messageHandler;
     private final CountDownLatch latch = new CountDownLatch(1);
-    private long lastVoiceDuration;
 
     public WebSocketClient(URI endpointURI) {
         try {
@@ -38,17 +36,8 @@ public class WebSocketClient {
     @OnMessage
     public void onTextMessage(String message) {
         System.out.println("Received text: " + message);
-        try {
-            JSONObject json = new JSONObject(message);
-            if ("voice".equals(json.optString("type"))) {
-                this.lastVoiceDuration = json.optLong("duration", 0);
-            } else if (messageHandler != null) {
-                messageHandler.handleText(message);
-            }
-        } catch (Exception e) {
-            if (messageHandler != null) {
-                messageHandler.handleText(message);
-            }
+        if (messageHandler != null) {
+            messageHandler.handleText(message);
         }
     }
 
@@ -56,8 +45,7 @@ public class WebSocketClient {
     public void onBinaryMessage(byte[] data) {
         System.out.println("Received binary (" + data.length + " bytes)");
         if (messageHandler != null) {
-            messageHandler.handleAudio(data, lastVoiceDuration);
-            lastVoiceDuration = 0; // Сброс после обработки
+            messageHandler.handleAudio(data);
         }
     }
 
@@ -99,6 +87,6 @@ public class WebSocketClient {
 
     public interface MessageHandler {
         void handleText(String message);
-        void handleAudio(byte[] audioData, long durationMs);
+        void handleAudio(byte[] audioData);
     }
 }
