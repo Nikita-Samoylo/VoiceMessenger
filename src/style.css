@@ -1,0 +1,48 @@
+/* src/main/resources/style.css */
+.root {
+    -fx-font-family: "Arial";
+}
+
+.button {
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 1);
+    -fx-font-weight: bold;
+}
+
+.button:hover {
+    -fx-opacity: 0.9;
+}
+
+.text-field {
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 3, 0, 0, 1);
+}
+
+.list-view {
+    -fx-border-color: #ddd;
+    -fx-border-width: 1;
+    -fx-border-radius: 5;
+    -fx-background-radius: 5;
+    -fx-background-insets: 0;
+    -fx-padding: 5;
+}
+
+.list-cell {
+    -fx-padding: 5;
+    -fx-background-color: transparent;
+}
+
+.list-cell:empty {
+    -fx-padding: 0;
+    -fx-background-color: transparent;
+    -fx-border-width: 0;
+}
+
+#sendButton {
+    -fx-background-color: #4CAF50;
+    -fx-text-fill: white;
+}
+
+#recordButton {
+    -fx-background-color: #ff4444;
+    -fx-text-fill: white;
+}

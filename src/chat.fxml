@@ -4,21 +4,30 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<VBox xmlns="http://javafx.com/javafx/8.0.171" xmlns:fx="http://javafx.com/fxml/1" fx:controller="client.ChatController" spacing="10">
+<VBox xmlns="http://javafx.com/javafx/17"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="client.ChatController"
+      spacing="10"
+      style="-fx-background-color: #f9f9f9;"
+      fx:id="mainContainer">
     <padding>
         <Insets top="10" right="10" bottom="10" left="10"/>
     </padding>
 
-    <HBox spacing="10">
-        <Label text="Username:"/>
-        <TextField fx:id="usernameField" promptText="Enter your name" HBox.hgrow="ALWAYS"/>
+    <HBox spacing="10" style="-fx-background-color: #4CAF50; -fx-padding: 10; -fx-background-radius: 5;">
+        <Label text="Имя пользователя:" style="-fx-text-fill: white; -fx-font-weight: bold;"/>
+        <TextField fx:id="usernameField" promptText="Введите ваше имя" style="-fx-background-radius: 15; -fx-padding: 5;"/>
     </HBox>
 
-    <ListView fx:id="messagesList" VBox.vgrow="ALWAYS"/>
+    <ListView fx:id="messagesList" style="-fx-background-color: white; -fx-border-color: #ddd; -fx-border-radius: 5; -fx-background-radius: 5;"
+              VBox.vgrow="ALWAYS"/>
 
-    <HBox spacing="10">
-        <TextField fx:id="messageField" promptText="Type your message" HBox.hgrow="ALWAYS"/>
-        <Button fx:id="sendButton" text="Send" onAction="#handleSendMessage"/>
-        <ToggleButton fx:id="recordButton" onAction="#handleRecord"/>
+    <HBox spacing="10" style="-fx-background-color: #e9e9e9; -fx-padding: 10; -fx-background-radius: 5;">
+        <TextField fx:id="messageField" promptText="Введите сообщение..." HBox.hgrow="ALWAYS"
+                   style="-fx-background-radius: 15; -fx-padding: 5;"/>
+        <Button fx:id="sendButton" text="Отправить" onAction="#handleSendMessage"
+                style="-fx-background-radius: 5; -fx-padding: 5 15 5 15;"/>
+        <ToggleButton fx:id="recordButton" text="🎤 Запись" onAction="#handleRecord"
+                      style="-fx-background-radius: 5; -fx-padding: 5 15 5 15;"/>
     </HBox>
 </VBox>

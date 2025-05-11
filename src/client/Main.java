@@ -1,4 +1,3 @@
-// client/Main.java
 package client;
 
 import javafx.application.Application;
@@ -11,10 +10,14 @@ public class Main extends Application {
     @Override
     public void start(Stage primaryStage) throws Exception {
         Parent root = FXMLLoader.load(getClass().getResource("/chat.fxml"));
-        primaryStage.setTitle("Voice Chat");
-        primaryStage.setScene(new Scene(root, 600, 400));
+        Scene scene = new Scene(root, 600, 500);
+        scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
 
-        // Обработчик закрытия окна
+        primaryStage.setTitle("Голосовой чат");
+        primaryStage.setScene(scene);
+        primaryStage.setMinWidth(400);
+        primaryStage.setMinHeight(400);
+
         primaryStage.setOnCloseRequest(e -> {
             System.exit(0);
         });

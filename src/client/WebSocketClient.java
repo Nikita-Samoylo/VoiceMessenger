@@ -30,10 +30,12 @@ public class WebSocketClient {
     public void onOpen(Session session) {
         this.session = session;
         latch.countDown();
+        System.out.println("Connected to server");
     }
 
     @OnMessage
     public void onTextMessage(String message) {
+        System.out.println("Received text: " + message);
         if (messageHandler != null) {
             messageHandler.handleText(message);
         }
@@ -41,6 +43,7 @@ public class WebSocketClient {
 
     @OnMessage
     public void onBinaryMessage(byte[] data) {
+        System.out.println("Received binary (" + data.length + " bytes)");
         if (messageHandler != null) {
             messageHandler.handleAudio(data);
         }
@@ -49,11 +52,13 @@ public class WebSocketClient {
     @OnError
     public void onError(Session session, Throwable thr) {
         System.err.println("WebSocket error: " + thr.getMessage());
+        thr.printStackTrace();
     }
 
     @OnClose
     public void onClose(Session session) {
         this.session = null;
+        System.out.println("Disconnected from server");
     }
 
     public void sendText(String message) {

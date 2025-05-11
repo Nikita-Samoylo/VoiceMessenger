@@ -20,5 +20,6 @@
     <orderEntry type="library" name="grizzly-http-server-2.4.4" level="project" />
     <orderEntry type="library" name="tyrus-container-grizzly-server-2.1.3" level="project" />
     <orderEntry type="library" name="grizzly-framework-2.4.4" level="project" />
+    <orderEntry type="library" name="json" level="project" />
   </component>
 </module>

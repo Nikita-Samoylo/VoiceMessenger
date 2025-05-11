@@ -19,8 +19,15 @@ public class ChatEndpoint {
     }
 
     @OnMessage
-    public void onMessage(String message, Session session) throws IOException {
-        broadcast(message, session);
+    public void onTextMessage(String message, Session session) throws IOException {
+        System.out.println("Received text message: " + message);
+        broadcastText(message, session);
+    }
+
+    @OnMessage
+    public void onBinaryMessage(byte[] data, Session session) throws IOException {
+        System.out.println("Received binary message (" + data.length + " bytes)");
+        broadcastBinary(data, session);
     }
 
     @OnClose
@@ -32,12 +39,23 @@ public class ChatEndpoint {
     @OnError
     public void onError(Session session, Throwable thr) {
         System.err.println("Error for " + session.getId() + ": " + thr.getMessage());
+        thr.printStackTrace();
     }
 
-    private void broadcast(String message, Session sender) throws IOException {
+    private void broadcastText(String message, Session sender) throws IOException {
         for (Session s : sessions) {
             if (s.isOpen() && !s.equals(sender)) {
                 s.getBasicRemote().sendText(message);
+            }
+        }
+    }
+
+    private void broadcastBinary(byte[] data, Session sender) throws IOException {
+        ByteBuffer buffer = ByteBuffer.wrap(data);
+        for (Session s : sessions) {
+            if (s.isOpen() && !s.equals(sender)) {
+                s.getBasicRemote().sendBinary(buffer);
+                buffer.rewind(); // Reset buffer position for next send
             }
         }
     }
