@@ -1,5 +1,8 @@
 package client;
 
+import javafx.animation.Animation;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
@@ -14,6 +17,8 @@ import org.json.JSONException;
 import shared.TextMessage;
 import shared.VoiceMessage;
 import java.net.URI;
+import java.time.Instant;
+import java.time.Duration;
 
 public class ChatController {
     @FXML private TextField usernameField;
@@ -22,11 +27,14 @@ public class ChatController {
     @FXML private ToggleButton recordButton;
     @FXML private ListView<HBox> messagesList;
     @FXML private VBox mainContainer;
+    @FXML private Label charCountLabel;
+    @FXML private Label recordingTimeLabel;
 
     private WebSocketClient client;
     private AudioRecorder recorder = new AudioRecorder();
     private String currentUser;
     private JSONObject lastVoiceMetadata;
+    private Timeline recordingTimer;
 
     @FXML
     private void initialize() {
@@ -36,6 +44,18 @@ public class ChatController {
         recordButton.setText("🎤 Запись");
         recordButton.setStyle("-fx-background-color: #ff4444; -fx-text-fill: white;");
         sendButton.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white;");
+
+        // Инициализация счетчиков
+        charCountLabel.setText(TextMessage.MAX_TEXT_LENGTH + "/" + TextMessage.MAX_TEXT_LENGTH);
+        recordingTimeLabel.setText("0/" + (VoiceMessage.MAX_AUDIO_DURATION_MS/1000) + "с");
+        recordingTimeLabel.setVisible(false);
+
+        // Слушатель изменения текста
+        messageField.textProperty().addListener((observable, oldValue, newValue) -> {
+            int remaining = TextMessage.MAX_TEXT_LENGTH - newValue.length();
+            charCountLabel.setText(remaining + "/" + TextMessage.MAX_TEXT_LENGTH);
+            charCountLabel.setTextFill(remaining < 0 ? Color.RED : Color.BLACK);
+        });
 
         messagesList.setCellFactory(param -> new ListCell<HBox>() {
             @Override
@@ -59,7 +79,10 @@ public class ChatController {
                     public void handleText(String message) {
                         try {
                             JSONObject json = new JSONObject(message);
-                            if ("voice".equals(json.optString("type"))) {
+                            if (json.has("error")) {
+                                Platform.runLater(() ->
+                                        addSystemMessage("Ошибка: " + json.getString("error")));
+                            } else if ("voice".equals(json.optString("type"))) {
                                 lastVoiceMetadata = json;
                             } else {
                                 Platform.runLater(() -> parseIncomingMessage(message, false));
@@ -101,6 +124,122 @@ public class ChatController {
         }).start();
     }
 
+    @FXML
+    private void handleSendMessage() {
+        if (!client.isConnected()) {
+            addSystemMessage("Ошибка: Нет подключения к серверу");
+            return;
+        }
+
+        currentUser = usernameField.getText().isEmpty() ? "Аноним" : usernameField.getText();
+        String message = messageField.getText().trim();
+
+        if (message.isEmpty()) {
+            addSystemMessage("Сообщение не может быть пустым");
+            return;
+        }
+
+        if (message.length() > TextMessage.MAX_TEXT_LENGTH) {
+            addSystemMessage("Ошибка: Сообщение слишком длинное (максимум " +
+                    TextMessage.MAX_TEXT_LENGTH + " символов)");
+            return;
+        }
+
+        try {
+            TextMessage textMessage = new TextMessage(currentUser, message);
+            client.sendText(textMessage.toJson());
+            parseIncomingMessage(textMessage.toJson(), true);
+            messageField.clear();
+        } catch (Exception e) {
+            addSystemMessage("Ошибка отправки сообщения: " + e.getMessage());
+        }
+    }
+
+    @FXML
+    private void handleRecord() {
+        if (recordButton.isSelected()) {
+            startRecording();
+        } else {
+            stopRecordingAndSend();
+        }
+    }
+
+    private void startRecording() {
+        recorder.startRecording();
+        recordButton.setText("⏹ Остановить");
+        recordButton.setStyle("-fx-background-color: #ff0000; -fx-text-fill: white;");
+        recordingTimeLabel.setVisible(true);
+
+        // Таймер для обновления времени записи
+        recordingTimer = new Timeline(
+                new KeyFrame(javafx.util.Duration.seconds(1), event -> {
+                    if (recorder.isRecording()) {
+                        long elapsedSeconds = Duration.between(
+                                recorder.getRecordingStartTime(),
+                                Instant.now()
+                        ).getSeconds();
+
+                        recordingTimeLabel.setText(
+                                elapsedSeconds + "/" +
+                                        (VoiceMessage.MAX_AUDIO_DURATION_MS/1000) + "с"
+                        );
+
+                        // Подсветка при приближении к лимиту
+                        if (elapsedSeconds >= VoiceMessage.MAX_AUDIO_DURATION_MS/1000 - 5) {
+                            recordingTimeLabel.setTextFill(Color.RED);
+                        }
+
+                        // Автоматическая остановка при достижении лимита
+                        if (elapsedSeconds >= VoiceMessage.MAX_AUDIO_DURATION_MS/1000) {
+                            Platform.runLater(() -> {
+                                recordButton.setSelected(false);
+                                stopRecordingAndSend();
+                            });
+                        }
+                    }
+                })
+        );
+        recordingTimer.setCycleCount(Animation.INDEFINITE);
+        recordingTimer.play();
+    }
+
+    private void stopRecordingAndSend() {
+        if (recordingTimer != null) {
+            recordingTimer.stop();
+        }
+        recordingTimeLabel.setVisible(false);
+        recordingTimeLabel.setTextFill(Color.BLACK);
+
+        AudioRecorder.RecordingResult result = recorder.stopRecording();
+        recordButton.setText("🎤 Запись");
+        recordButton.setStyle("-fx-background-color: #ff4444; -fx-text-fill: white;");
+
+        if (result.getAudioData() == null || result.getAudioData().length == 0) {
+            addSystemMessage("Не удалось записать аудио");
+            return;
+        }
+
+        if (result.getDurationMs() > VoiceMessage.MAX_AUDIO_DURATION_MS ||
+                result.getAudioData().length > VoiceMessage.MAX_AUDIO_SIZE_BYTES) {
+            addSystemMessage("Ошибка: Голосовое сообщение слишком длинное (максимум " +
+                    VoiceMessage.MAX_AUDIO_DURATION_MS/1000 + " секунд)");
+            return;
+        }
+
+        currentUser = usernameField.getText().isEmpty() ? "Аноним" : usernameField.getText();
+
+        try {
+            VoiceMessage voiceMessage = new VoiceMessage(currentUser, result.getAudioData(), result.getDurationMs());
+            client.sendText(voiceMessage.toJson());
+            client.sendAudio(result.getAudioData());
+            addVoiceMessage(result.getAudioData(), result.getDurationMs(), currentUser, true);
+        } catch (Exception e) {
+            System.err.println("Error sending audio message:");
+            e.printStackTrace();
+            addSystemMessage("Ошибка отправки голосового сообщения");
+        }
+    }
+
     private void addVoiceMessage(byte[] audioData, long durationMs, String sender, boolean isMyMessage) {
         String displayName = isMyMessage ? "Вы" : sender;
         String duration = formatDuration(durationMs);
@@ -129,33 +268,6 @@ public class ChatController {
         scrollToBottom();
     }
 
-    @FXML
-    private void handleRecord() {
-        if (recordButton.isSelected()) {
-            startRecording();
-        } else {
-            AudioRecorder.RecordingResult result = recorder.stopRecording();
-            recordButton.setText("🎤 Запись");
-            recordButton.setStyle("-fx-background-color: #ff4444; -fx-text-fill: white;");
-
-            if (result.getAudioData() != null && result.getAudioData().length > 0) {
-                currentUser = usernameField.getText().isEmpty() ? "Аноним" : usernameField.getText();
-                VoiceMessage voiceMessage = new VoiceMessage(currentUser, result.getAudioData(), result.getDurationMs());
-
-                try {
-                    client.sendText(voiceMessage.toJson());
-                    client.sendAudio(result.getAudioData());
-                    addVoiceMessage(result.getAudioData(), result.getDurationMs(), currentUser, true);
-                } catch (Exception e) {
-                    System.err.println("Error sending audio message:");
-                    e.printStackTrace();
-                    addSystemMessage("Ошибка отправки голосового сообщения");
-                }
-            }
-        }
-    }
-
-    // Остальные методы остаются без изменений
     private void enableControls(boolean enabled) {
         recordButton.setDisable(!enabled);
         sendButton.setDisable(!enabled);
@@ -187,7 +299,7 @@ public class ChatController {
     }
 
     private void addTextMessage(JSONObject json, boolean isMyMessage) throws JSONException {
-        String sender = json.getString("sender");
+        String sender = isMyMessage ? "Вы" : json.getString("sender"); // Изменено здесь
         String content = json.getString("content");
 
         Label senderLabel = new Label(sender + ":");
@@ -221,29 +333,5 @@ public class ChatController {
 
     private void scrollToBottom() {
         messagesList.scrollTo(messagesList.getItems().size() - 1);
-    }
-
-    @FXML
-    private void handleSendMessage() {
-        if (!client.isConnected()) {
-            addSystemMessage("Ошибка: Нет подключения к серверу");
-            return;
-        }
-
-        currentUser = usernameField.getText().isEmpty() ? "Аноним" : usernameField.getText();
-        String message = messageField.getText();
-
-        if (!message.isEmpty()) {
-            TextMessage textMessage = new TextMessage(currentUser, message);
-            client.sendText(textMessage.toJson());
-            parseIncomingMessage(textMessage.toJson(), true);
-            messageField.clear();
-        }
-    }
-
-    private void startRecording() {
-        recorder.startRecording();
-        recordButton.setText("⏹ Остановить");
-        recordButton.setStyle("-fx-background-color: #ff0000; -fx-text-fill: white;");
     }
 }

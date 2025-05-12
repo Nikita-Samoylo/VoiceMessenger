@@ -54,6 +54,14 @@ public class AudioRecorder {
         return new RecordingResult(out.toByteArray(), duration.toMillis());
     }
 
+    public Instant getRecordingStartTime() {
+        return recordingStartTime;
+    }
+
+    public boolean isRecording() {
+        return isRecording;
+    }
+
     public static class RecordingResult {
         private final byte[] audioData;
         private final long durationMs;

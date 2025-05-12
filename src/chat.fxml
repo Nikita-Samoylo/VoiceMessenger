@@ -23,11 +23,19 @@
               VBox.vgrow="ALWAYS"/>
 
     <HBox spacing="10" style="-fx-background-color: #e9e9e9; -fx-padding: 10; -fx-background-radius: 5;">
-        <TextField fx:id="messageField" promptText="Введите сообщение..." HBox.hgrow="ALWAYS"
-                   style="-fx-background-radius: 15; -fx-padding: 5;"/>
-        <Button fx:id="sendButton" text="Отправить" onAction="#handleSendMessage"
-                style="-fx-background-radius: 5; -fx-padding: 5 15 5 15;"/>
-        <ToggleButton fx:id="recordButton" text="🎤 Запись" onAction="#handleRecord"
-                      style="-fx-background-radius: 5; -fx-padding: 5 15 5 15;"/>
+        <VBox spacing="5">
+            <HBox spacing="5" alignment="CENTER_LEFT">
+                <TextField fx:id="messageField" promptText="Введите сообщение..." HBox.hgrow="ALWAYS"
+                           style="-fx-background-radius: 15; -fx-padding: 5;"/>
+                <Label fx:id="charCountLabel" style="-fx-font-size: 12; -fx-padding: 5 10 5 0;"/>
+            </HBox>
+            <HBox spacing="10" alignment="CENTER_LEFT">
+                <Button fx:id="sendButton" text="Отправить" onAction="#handleSendMessage"
+                        style="-fx-background-radius: 5; -fx-padding: 5 15 5 15;"/>
+                <ToggleButton fx:id="recordButton" text="🎤 Запись" onAction="#handleRecord"
+                              style="-fx-background-radius: 5; -fx-padding: 5 15 5 15;"/>
+                <Label fx:id="recordingTimeLabel" style="-fx-font-size: 12; -fx-text-fill: #666;"/>
+            </HBox>
+        </VBox>
     </HBox>
 </VBox>

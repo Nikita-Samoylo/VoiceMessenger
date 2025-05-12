@@ -1,22 +1,48 @@
-/* src/main/resources/style.css */
+/* Основные стили приложения */
 .root {
     -fx-font-family: "Arial";
+    -fx-base: #f0f0f0;
+    -fx-background: #f9f9f9;
 }
 
+/* Стили для кнопок */
 .button {
     -fx-cursor: hand;
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 1);
     -fx-font-weight: bold;
+    -fx-padding: 8 20 8 20; /* Увеличено padding для кнопок */
+    -fx-background-radius: 5;
+    -fx-border-radius: 5;
+    -fx-min-width: 100px; /* Минимальная ширина кнопок */
 }
 
 .button:hover {
     -fx-opacity: 0.9;
 }
 
-.text-field {
-    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 3, 0, 0, 1);
+#sendButton {
+    -fx-background-color: #4CAF50;
+    -fx-text-fill: white;
 }
 
+#recordButton {
+    -fx-background-color: #ff4444;
+    -fx-text-fill: white;
+    -fx-min-width: 120px; /* Ширина кнопки записи */
+}
+
+/* Стили для текстовых полей - ОСНОВНЫЕ ИЗМЕНЕНИЯ ЗДЕСЬ */
+.text-field {
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 3, 0, 0, 1);
+    -fx-background-radius: 15;
+    -fx-padding: 8 15 8 15; /* Увеличенный padding */
+    -fx-min-width: 400px;   /* Минимальная ширина */
+    -fx-pref-width: 500px;  /* Предпочтительная ширина */
+    -fx-max-width: 600px;   /* Максимальная ширина */
+    -fx-font-size: 14px;    /* Увеличенный размер шрифта */
+}
+
+/* Стили для списка сообщений */
 .list-view {
     -fx-border-color: #ddd;
     -fx-border-width: 1;
@@ -24,6 +50,7 @@
     -fx-background-radius: 5;
     -fx-background-insets: 0;
     -fx-padding: 5;
+    -fx-background-color: white;
 }
 
 .list-cell {
@@ -37,12 +64,61 @@
     -fx-border-width: 0;
 }
 
-#sendButton {
-    -fx-background-color: #4CAF50;
-    -fx-text-fill: white;
+/* Стили для счетчиков */
+#charCountLabel {
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-padding: 8 10 8 0; /* Увеличенный padding */
+    -fx-text-fill: #555;
 }
 
-#recordButton {
-    -fx-background-color: #ff4444;
-    -fx-text-fill: white;
+#recordingTimeLabel {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-padding: 8 0 8 15; /* Увеличенный padding */
+    -fx-text-fill: #666;
+}
+
+/* Контейнеры для сообщений */
+.message-container {
+    -fx-padding: 8 12 8 12; /* Увеличенный padding */
+}
+
+/* Стили для нижней панели */
+.bottom-panel {
+    -fx-background-color: #e9e9e9;
+    -fx-padding: 12px; /* Увеличенный padding */
+    -fx-background-radius: 5;
+    -fx-spacing: 12px; /* Увеличенный spacing */
+}
+
+/* Дополнительные стили для улучшения компоновки */
+.message-input-container {
+    -fx-spacing: 12px;
+    -fx-alignment: center-left;
+    -fx-padding: 0 0 0 10px;
+}
+
+.controls-container {
+    -fx-spacing: 12px;
+    -fx-alignment: center-left;
+    -fx-padding: 5px 0 5px 10px;
+}
+
+/* Адаптивные стили */
+@media (max-width: 600px) {
+    .text-field {
+        -fx-min-width: 300px;
+        -fx-pref-width: 350px;
+        -fx-max-width: 400px;
+    }
+
+    .button {
+        -fx-padding: 6 15 6 15;
+        -fx-min-width: 80px;
+    }
+
+    #recordButton {
+        -fx-min-width: 100px;
+    }
 }

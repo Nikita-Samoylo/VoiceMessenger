@@ -8,6 +8,11 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+import shared.TextMessage;
+import shared.VoiceMessage;
+
 @ServerEndpoint("/chat")
 public class ChatEndpoint {
     private static final Set<Session> sessions = Collections.synchronizedSet(new HashSet<>());
@@ -20,13 +25,33 @@ public class ChatEndpoint {
 
     @OnMessage
     public void onTextMessage(String message, Session session) throws IOException {
-        System.out.println("Received text message: " + message);
-        broadcastText(message, session);
+        try {
+            JSONObject json = new JSONObject(message);
+            if ("text".equals(json.optString("type"))) {
+                String content = json.optString("content", "");
+                if (content.length() > TextMessage.MAX_TEXT_LENGTH) {
+                    session.getBasicRemote().sendText(
+                            "{\"error\":\"Message too long. Max length is " +
+                                    TextMessage.MAX_TEXT_LENGTH + " characters\"}"
+                    );
+                    return;
+                }
+            }
+            broadcastText(message, session);
+        } catch (JSONException e) {
+            session.getBasicRemote().sendText("{\"error\":\"Invalid message format\"}");
+        }
     }
 
     @OnMessage
     public void onBinaryMessage(byte[] data, Session session) throws IOException {
-        System.out.println("Received binary message (" + data.length + " bytes)");
+        if (data.length > VoiceMessage.MAX_AUDIO_SIZE_BYTES) {
+            session.getBasicRemote().sendText(
+                    "{\"error\":\"Audio message too large. Max size is " +
+                            VoiceMessage.MAX_AUDIO_SIZE_BYTES/1024 + " KB\"}"
+            );
+            return;
+        }
         broadcastBinary(data, session);
     }
 
@@ -39,7 +64,6 @@ public class ChatEndpoint {
     @OnError
     public void onError(Session session, Throwable thr) {
         System.err.println("Error for " + session.getId() + ": " + thr.getMessage());
-        thr.printStackTrace();
     }
 
     private void broadcastText(String message, Session sender) throws IOException {
@@ -55,7 +79,7 @@ public class ChatEndpoint {
         for (Session s : sessions) {
             if (s.isOpen() && !s.equals(sender)) {
                 s.getBasicRemote().sendBinary(buffer);
-                buffer.rewind(); // Reset buffer position for next send
+                buffer.rewind();
             }
         }
     }
