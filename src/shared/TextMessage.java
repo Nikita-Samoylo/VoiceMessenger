@@ -22,7 +22,7 @@ public class TextMessage extends Message {
 
     @Override
     public String toJson() {
-        return String.format("{\"type\":\"text\",\"sender\":\"%s\",\"content\":\"%s\"}",
-                sender, text.replace("\"", "\\\""));
+        return String.format("{\"type\":\"text\",\"sender\":\"%s\",\"content\":\"%s\",\"timestamp\":\"%s\"}",
+                sender, text.replace("\"", "\\\""), timestamp);
     }
 }

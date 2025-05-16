@@ -1,5 +1,7 @@
 package shared;
 
+import java.util.Base64;
+
 public class VoiceMessage extends Message {
     private byte[] audioData;
     private long durationMs;
@@ -33,7 +35,12 @@ public class VoiceMessage extends Message {
 
     @Override
     public String toJson() {
-        return String.format("{\"type\":\"voice\",\"sender\":\"%s\",\"size\":%d,\"duration\":%d}",
-                sender, audioData.length, durationMs);
+        return String.format("{\"type\":\"voice\",\"sender\":\"%s\",\"size\":%d,\"duration\":%d,\"timestamp\":\"%s\"}",
+                sender, audioData.length, durationMs, timestamp);
+    }
+
+    public String toHistoryJson() {
+        return String.format("{\"type\":\"voice\",\"sender\":\"%s\",\"durationMs\":%d,\"audioData\":\"%s\",\"timestamp\":\"%s\"}",
+                sender, durationMs, Base64.getEncoder().encodeToString(audioData), timestamp);
     }
 }
