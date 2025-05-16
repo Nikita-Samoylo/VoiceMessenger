@@ -1,4 +1,3 @@
-// shared/Message.java
 package shared;
 
 public abstract class Message {

@@ -299,7 +299,7 @@ public class ChatController {
     }
 
     private void addTextMessage(JSONObject json, boolean isMyMessage) throws JSONException {
-        String sender = isMyMessage ? "Вы" : json.getString("sender"); // Изменено здесь
+        String sender = isMyMessage ? "Вы" : json.getString("sender");
         String content = json.getString("content");
 
         Label senderLabel = new Label(sender + ":");
