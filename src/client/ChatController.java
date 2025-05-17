@@ -33,11 +33,12 @@ public class ChatController {
     @FXML private TextField messageField;
     @FXML private Button sendButton;
     @FXML private ToggleButton recordButton;
-    @FXML private ListView<HBox> messagesList;
-    @FXML private VBox mainContainer;
+    @FXML private ListView<Message> messagesList;
     @FXML private Label charCountLabel;
     @FXML private Label recordingTimeLabel;
 
+    private static final Duration MESSAGE_MAX_AGE = Duration.ofDays(3);
+    private Timeline cleanupTimer;
     private WebSocketClient client;
     private AudioRecorder recorder = new AudioRecorder();
     private String currentUser;
@@ -45,60 +46,157 @@ public class ChatController {
     private Timeline recordingTimer;
     private ObservableList<Message> messageHistory = FXCollections.observableArrayList();
 
+    private static class SystemMessage extends Message {
+        private final String text;
+
+        public SystemMessage(String text) {
+            super("system");
+            this.text = text;
+        }
+
+        public String getText() {
+            return text;
+        }
+
+        @Override
+        public String toJson() {
+            return new JSONObject()
+                    .put("type", "system")
+                    .put("content", text)
+                    .toString();
+        }
+    }
+
     @FXML
     private void initialize() {
-        System.out.println("Инициализация контроллера...");
+        setupUI();
+        setupTextListener();
+        loadAndCleanHistory();
+        connectToServer();
+        setupCleanupTimer();
+    }
 
-        // Настройка UI
+    private void setupUI() {
+        messagesList.setItems(messageHistory);
+        messagesList.setCellFactory(param -> new MessageListCell());
+
         recordButton.setText("🎤 Запись");
         recordButton.setStyle("-fx-background-color: #ff4444; -fx-text-fill: white;");
         sendButton.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white;");
 
-        // Инициализация счетчиков
         charCountLabel.setText(TextMessage.MAX_TEXT_LENGTH + "/" + TextMessage.MAX_TEXT_LENGTH);
         recordingTimeLabel.setText("0/" + (VoiceMessage.MAX_AUDIO_DURATION_MS/1000) + "с");
         recordingTimeLabel.setVisible(false);
+    }
 
-        // Слушатель изменения текста
+    private void setupTextListener() {
         messageField.textProperty().addListener((observable, oldValue, newValue) -> {
             int remaining = TextMessage.MAX_TEXT_LENGTH - newValue.length();
             charCountLabel.setText(remaining + "/" + TextMessage.MAX_TEXT_LENGTH);
             charCountLabel.setTextFill(remaining < 0 ? Color.RED : Color.BLACK);
         });
+    }
 
-        messagesList.setCellFactory(param -> new ListCell<HBox>() {
-            @Override
-            protected void updateItem(HBox item, boolean empty) {
-                super.updateItem(item, empty);
-                setGraphic(empty || item == null ? null : item);
-            }
-        });
-
-        connectToServer();
+    private void loadAndCleanHistory() {
         loadHistory();
+        cleanupOldMessages();
+        saveHistory();
+    }
+
+    private class MessageListCell extends ListCell<Message> {
+        @Override
+        protected void updateItem(Message message, boolean empty) {
+            super.updateItem(message, empty);
+            if (empty || message == null) {
+                setGraphic(null);
+                return;
+            }
+
+            boolean isMyMessage = message.getSender().equals(currentUser);
+
+            if (message instanceof TextMessage) {
+                setGraphic(createTextMessageBox((TextMessage) message, isMyMessage));
+            } else if (message instanceof VoiceMessage) {
+                setGraphic(createVoiceMessageBox((VoiceMessage) message, isMyMessage));
+            } else if (message instanceof SystemMessage) {
+                setGraphic(createSystemMessageBox(((SystemMessage) message).getText()));
+            }
+        }
+
+        private HBox createTextMessageBox(TextMessage message, boolean isMyMessage) {
+            Label senderLabel = new Label((isMyMessage ? "Вы" : message.getSender()) + ":");
+            senderLabel.setFont(Font.font("Arial", FontWeight.BOLD, 12));
+
+            Label messageLabel = new Label(message.getText());
+            messageLabel.setFont(Font.font("Arial", 14));
+            messageLabel.setWrapText(true);
+            messageLabel.setMaxWidth(300);
+            messageLabel.setPadding(new Insets(5, 10, 5, 10));
+
+            VBox messageBox = new VBox(2, senderLabel, messageLabel);
+            messageBox.setPadding(new Insets(5));
+            messageBox.setStyle(isMyMessage
+                    ? "-fx-background-color: #DCF8C6; -fx-background-radius: 10;"
+                    : "-fx-background-color: #ECECEC; -fx-background-radius: 10;");
+
+            HBox container = new HBox(messageBox);
+            container.setAlignment(isMyMessage ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
+            container.setPadding(new Insets(5, 10, 5, 10));
+            return container;
+        }
+
+        private HBox createVoiceMessageBox(VoiceMessage message, boolean isMyMessage) {
+            String duration = formatDuration(message.getDurationMs());
+            Label senderLabel = new Label((isMyMessage ? "Вы" : message.getSender()) +
+                    " (голосовое, " + duration + "):");
+            senderLabel.setFont(Font.font("Arial", FontWeight.BOLD, 12));
+
+            Button playButton = new Button("▶ Воспроизвести");
+            playButton.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white;");
+            playButton.setOnAction(e -> AudioPlayer.play(message.getAudioData()));
+
+            VBox messageBox = new VBox(5, senderLabel, playButton);
+            messageBox.setPadding(new Insets(5, 10, 5, 10));
+            messageBox.setStyle(isMyMessage
+                    ? "-fx-background-color: #DCF8C6; -fx-background-radius: 10;"
+                    : "-fx-background-color: #f0f0f0; -fx-background-radius: 10;");
+
+            HBox container = new HBox(messageBox);
+            container.setAlignment(isMyMessage ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
+            container.setPadding(new Insets(5, 10, 5, 10));
+            return container;
+        }
+
+        private HBox createSystemMessageBox(String text) {
+            Label label = new Label(text);
+            label.setFont(Font.font("Arial", 12));
+            label.setTextFill(Color.GRAY);
+
+            HBox container = new HBox(label);
+            container.setAlignment(Pos.CENTER);
+            container.setPadding(new Insets(5, 0, 5, 0));
+            return container;
+        }
     }
 
     private void connectToServer() {
         new Thread(() -> {
             try {
-                System.out.println("Попытка подключения к WebSocket...");
                 client = new WebSocketClient(new URI("ws://localhost:8080/chat"));
-
                 client.setMessageHandler(new WebSocketClient.MessageHandler() {
                     @Override
                     public void handleText(String message) {
                         try {
                             JSONObject json = new JSONObject(message);
                             if (json.has("error")) {
-                                Platform.runLater(() ->
-                                        addSystemMessage("Ошибка: " + json.getString("error")));
+                                addSystemMessage("Ошибка: " + json.getString("error"));
                             } else if ("voice".equals(json.optString("type"))) {
                                 lastVoiceMetadata = json;
                             } else {
-                                Platform.runLater(() -> parseIncomingMessage(message, false));
+                                parseIncomingMessage(message, false);
                             }
                         } catch (JSONException e) {
-                            Platform.runLater(() -> parseIncomingMessage(message, false));
+                            parseIncomingMessage(message, false);
                         }
                     }
 
@@ -108,8 +206,11 @@ public class ChatController {
                             if (lastVoiceMetadata != null) {
                                 try {
                                     String sender = lastVoiceMetadata.getString("sender");
-                                    long duration = lastVoiceMetadata.getLong("duration");
-                                    VoiceMessage vm = new VoiceMessage(sender, audioData, duration);
+                                    VoiceMessage vm = new VoiceMessage(
+                                            sender,
+                                            audioData,
+                                            lastVoiceMetadata.getLong("duration")
+                                    );
                                     addMessageToUI(vm, sender.equals(currentUser));
                                 } catch (JSONException e) {
                                     addSystemMessage("Ошибка обработки голосового сообщения");
@@ -123,10 +224,8 @@ public class ChatController {
                 Platform.runLater(() -> {
                     addSystemMessage("✅ Подключено к серверу!");
                     enableControls(true);
-                    System.out.println("Успешное подключение");
                 });
             } catch (Exception e) {
-                System.err.println("Ошибка подключения: " + e.getMessage());
                 Platform.runLater(() -> {
                     addSystemMessage("❌ Ошибка подключения: " + e.getMessage());
                     enableControls(false);
@@ -145,14 +244,10 @@ public class ChatController {
         currentUser = usernameField.getText().isEmpty() ? "Аноним" : usernameField.getText();
         String message = messageField.getText().trim();
 
-        if (message.isEmpty()) {
-            addSystemMessage("Сообщение не может быть пустым");
-            return;
-        }
-
-        if (message.length() > TextMessage.MAX_TEXT_LENGTH) {
-            addSystemMessage("Ошибка: Сообщение слишком длинное (максимум " +
-                    TextMessage.MAX_TEXT_LENGTH + " символов)");
+        if (message.isEmpty() || message.length() > TextMessage.MAX_TEXT_LENGTH) {
+            addSystemMessage(message.isEmpty()
+                    ? "Сообщение не может быть пустым"
+                    : "Сообщение слишком длинное (максимум " + TextMessage.MAX_TEXT_LENGTH + " символов)");
             return;
         }
 
@@ -181,40 +276,39 @@ public class ChatController {
         recordButton.setStyle("-fx-background-color: #ff0000; -fx-text-fill: white;");
         recordingTimeLabel.setVisible(true);
 
-        recordingTimer = new Timeline(
-                new KeyFrame(javafx.util.Duration.seconds(1), event -> {
-                    if (recorder.isRecording()) {
-                        long elapsedSeconds = Duration.between(
-                                recorder.getRecordingStartTime(),
-                                Instant.now()
-                        ).getSeconds();
-
-                        recordingTimeLabel.setText(
-                                elapsedSeconds + "/" +
-                                        (VoiceMessage.MAX_AUDIO_DURATION_MS/1000) + "с"
-                        );
-
-                        if (elapsedSeconds >= VoiceMessage.MAX_AUDIO_DURATION_MS/1000 - 5) {
-                            recordingTimeLabel.setTextFill(Color.RED);
-                        }
-
-                        if (elapsedSeconds >= VoiceMessage.MAX_AUDIO_DURATION_MS/1000) {
-                            Platform.runLater(() -> {
-                                recordButton.setSelected(false);
-                                stopRecordingAndSend();
-                            });
-                        }
-                    }
-                })
-        );
+        recordingTimer = new Timeline(new KeyFrame(
+                javafx.util.Duration.seconds(1),
+                event -> updateRecordingTimer()
+        ));
         recordingTimer.setCycleCount(Animation.INDEFINITE);
         recordingTimer.play();
     }
 
-    private void stopRecordingAndSend() {
-        if (recordingTimer != null) {
-            recordingTimer.stop();
+    private void updateRecordingTimer() {
+        if (recorder.isRecording()) {
+            long elapsedSeconds = Duration.between(
+                    recorder.getRecordingStartTime(),
+                    Instant.now()
+            ).getSeconds();
+
+            recordingTimeLabel.setText(elapsedSeconds + "/" +
+                    (VoiceMessage.MAX_AUDIO_DURATION_MS/1000) + "с");
+
+            if (elapsedSeconds >= VoiceMessage.MAX_AUDIO_DURATION_MS/1000 - 5) {
+                recordingTimeLabel.setTextFill(Color.RED);
+            }
+
+            if (elapsedSeconds >= VoiceMessage.MAX_AUDIO_DURATION_MS/1000) {
+                Platform.runLater(() -> {
+                    recordButton.setSelected(false);
+                    stopRecordingAndSend();
+                });
+            }
         }
+    }
+
+    private void stopRecordingAndSend() {
+        if (recordingTimer != null) recordingTimer.stop();
         recordingTimeLabel.setVisible(false);
         recordingTimeLabel.setTextFill(Color.BLACK);
 
@@ -229,116 +323,40 @@ public class ChatController {
 
         if (result.getDurationMs() > VoiceMessage.MAX_AUDIO_DURATION_MS ||
                 result.getAudioData().length > VoiceMessage.MAX_AUDIO_SIZE_BYTES) {
-            addSystemMessage("Ошибка: Голосовое сообщение слишком длинное (максимум " +
+            addSystemMessage("Голосовое сообщение слишком длинное (максимум " +
                     VoiceMessage.MAX_AUDIO_DURATION_MS/1000 + " секунд)");
             return;
         }
 
         currentUser = usernameField.getText().isEmpty() ? "Аноним" : usernameField.getText();
-
         try {
-            VoiceMessage voiceMessage = new VoiceMessage(currentUser, result.getAudioData(), result.getDurationMs());
-            client.sendText(voiceMessage.toJson());
+            VoiceMessage vm = new VoiceMessage(currentUser,
+                    result.getAudioData(),
+                    result.getDurationMs()
+            );
+            client.sendText(vm.toJson());
             client.sendAudio(result.getAudioData());
-            addMessageToUI(voiceMessage, true);
+            addMessageToUI(vm, true);
         } catch (Exception e) {
-            System.err.println("Error sending audio message:");
-            e.printStackTrace();
             addSystemMessage("Ошибка отправки голосового сообщения");
         }
     }
 
     private void addMessageToUI(Message message, boolean isMyMessage) {
-        messageHistory.add(message);
-        if (message instanceof TextMessage) {
-            showTextMessage((TextMessage) message, isMyMessage);
-        } else if (message instanceof VoiceMessage) {
-            showVoiceMessage((VoiceMessage) message, isMyMessage);
-        }
-    }
-
-    private void showTextMessage(TextMessage message, boolean isMyMessage) {
-        String sender = isMyMessage ? "Вы" : message.getSender();
-        String content = message.getText();
-
-        Label senderLabel = new Label(sender + ":");
-        senderLabel.setFont(Font.font("Arial", FontWeight.BOLD, 12));
-
-        Label messageLabel = new Label(content);
-        messageLabel.setFont(Font.font("Arial", 14));
-        messageLabel.setWrapText(true);
-        messageLabel.setMaxWidth(300);
-        messageLabel.setPadding(new Insets(5, 10, 5, 10));
-
-        VBox messageBox = new VBox(2, senderLabel, messageLabel);
-        messageBox.setPadding(new Insets(5));
-        messageBox.setStyle(isMyMessage
-                ? "-fx-background-color: #DCF8C6; -fx-background-radius: 10;"
-                : "-fx-background-color: #ECECEC; -fx-background-radius: 10;");
-
-        HBox container = new HBox(messageBox);
-        container.setAlignment(isMyMessage ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
-        container.setPadding(new Insets(5, 10, 5, 10));
-
         Platform.runLater(() -> {
-            messagesList.getItems().add(container);
+            messageHistory.add(message);
             scrollToBottom();
         });
-    }
-
-    private void showVoiceMessage(VoiceMessage message, boolean isMyMessage) {
-        String displayName = isMyMessage ? "Вы" : message.getSender();
-        String duration = formatDuration(message.getDurationMs());
-
-        Label senderLabel = new Label(displayName + " (голосовое, " + duration + "):");
-        senderLabel.setFont(Font.font("Arial", FontWeight.BOLD, 12));
-
-        Button playButton = new Button("▶ Воспроизвести");
-        playButton.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white;");
-        playButton.setOnAction(e -> AudioPlayer.play(message.getAudioData()));
-
-        VBox messageBox = new VBox(5, senderLabel, playButton);
-        messageBox.setPadding(new Insets(5, 10, 5, 10));
-        messageBox.setStyle(isMyMessage
-                ? "-fx-background-color: #DCF8C6; -fx-background-radius: 10;"
-                : "-fx-background-color: #f0f0f0; -fx-background-radius: 10;");
-
-        HBox container = new HBox(messageBox);
-        container.setAlignment(isMyMessage ? Pos.CENTER_RIGHT : Pos.CENTER_LEFT);
-        container.setPadding(new Insets(5, 10, 5, 10));
-
-        Platform.runLater(() -> {
-            messagesList.getItems().add(container);
-            scrollToBottom();
-        });
-    }
-
-    private void enableControls(boolean enabled) {
-        recordButton.setDisable(!enabled);
-        sendButton.setDisable(!enabled);
     }
 
     private void addSystemMessage(String text) {
-        Label label = new Label(text);
-        label.setFont(Font.font("Arial", 12));
-        label.setTextFill(Color.GRAY);
-
-        HBox container = new HBox(label);
-        container.setAlignment(Pos.CENTER);
-        container.setPadding(new Insets(5, 0, 5, 0));
-
-        Platform.runLater(() -> {
-            messagesList.getItems().add(container);
-            scrollToBottom();
-        });
+        addMessageToUI(new SystemMessage(text), false);
     }
 
     private void parseIncomingMessage(String message, boolean isMyMessage) {
         try {
             JSONObject json = new JSONObject(message);
-            String type = json.getString("type");
-
-            if ("text".equals(type)) {
+            if ("text".equals(json.getString("type"))) {
                 TextMessage tm = new TextMessage(
                         json.getString("sender"),
                         json.getString("content")
@@ -351,50 +369,65 @@ public class ChatController {
         }
     }
 
+    private void scrollToBottom() {
+        Platform.runLater(() ->
+                messagesList.scrollTo(messagesList.getItems().size() - 1));
+    }
+
     private String formatDuration(long durationMs) {
         long seconds = (durationMs / 1000) % 60;
         long minutes = (durationMs / (1000 * 60)) % 60;
         return String.format("%d:%02d", minutes, seconds);
     }
 
-    private void scrollToBottom() {
-        Platform.runLater(() ->
-                messagesList.scrollTo(messagesList.getItems().size() - 1));
+    private void enableControls(boolean enabled) {
+        recordButton.setDisable(!enabled);
+        sendButton.setDisable(!enabled);
+    }
+
+    private void setupCleanupTimer() {
+        cleanupTimer = new Timeline(
+                new KeyFrame(javafx.util.Duration.hours(1), event -> cleanupOldMessages())
+        );
+        cleanupTimer.setCycleCount(Animation.INDEFINITE);
+        cleanupTimer.play();
+    }
+
+    private void cleanupOldMessages() {
+        messageHistory.removeIf(message ->
+                message.getTimestamp().plus(MESSAGE_MAX_AGE).isBefore(Instant.now())
+        );
     }
 
     public void saveHistory() {
         try {
             JSONArray history = new JSONArray();
-            for (Message msg : messageHistory) {
-                JSONObject json = new JSONObject();
+            Instant now = Instant.now();
 
+            for (Message msg : messageHistory) {
+                if (msg instanceof SystemMessage) continue;
+                if (msg.getTimestamp().plus(MESSAGE_MAX_AGE).isBefore(now)) continue;
+
+                JSONObject json = new JSONObject();
                 if (msg instanceof TextMessage) {
                     TextMessage tm = (TextMessage) msg;
-                    json.put("type", "text");
-                    json.put("sender", tm.getSender());
-                    json.put("content", tm.getText());
-                    json.put("timestamp", tm.getTimestamp().toString());
-                }
-                else if (msg instanceof VoiceMessage) {
+                    json.put("type", "text")
+                            .put("sender", tm.getSender())
+                            .put("content", tm.getText())
+                            .put("timestamp", tm.getTimestamp().toString());
+                } else if (msg instanceof VoiceMessage) {
                     VoiceMessage vm = (VoiceMessage) msg;
-                    json.put("type", "voice");
-                    json.put("sender", vm.getSender());
-                    json.put("duration", vm.getDurationMs());
-                    json.put("data", Base64.getEncoder().encodeToString(vm.getAudioData()));
-                    json.put("timestamp", vm.getTimestamp().toString());
+                    json.put("type", "voice")
+                            .put("sender", vm.getSender())
+                            .put("duration", vm.getDurationMs())
+                            .put("data", Base64.getEncoder().encodeToString(vm.getAudioData()))
+                            .put("timestamp", vm.getTimestamp().toString());
                 }
                 history.put(json);
             }
 
-            // Создаем папку history если её нет
-            Path dir = Paths.get("history");
-            if (!Files.exists(dir)) {
-                Files.createDirectories(dir);
-            }
-
-            // Сохраняем в папку проекта
-            Path path = dir.resolve("chat_history.json");
-            Files.write(path, history.toString(2).getBytes());
+            Files.createDirectories(Paths.get("history"));
+            Files.write(Paths.get("history/chat_history.json"), history.toString(2).getBytes());
         } catch (Exception e) {
             System.err.println("Ошибка сохранения истории: " + e.getMessage());
         }
@@ -402,31 +435,34 @@ public class ChatController {
 
     private void loadHistory() {
         try {
-            // Путь к файлу в папке проекта
             Path path = Paths.get("history/chat_history.json");
             if (!Files.exists(path)) return;
 
-            String content = new String(Files.readAllBytes(path));
-            JSONArray history = new JSONArray(content);
+            JSONArray history = new JSONArray(new String(Files.readAllBytes(path)));
+            Instant now = Instant.now();
+            messageHistory.clear();
 
             for (int i = 0; i < history.length(); i++) {
                 JSONObject msg = history.getJSONObject(i);
+                Instant timestamp = Instant.parse(msg.getString("timestamp"));
+
+                if (timestamp.plus(MESSAGE_MAX_AGE).isBefore(now)) continue;
+
                 if ("text".equals(msg.getString("type"))) {
                     TextMessage tm = new TextMessage(
                             msg.getString("sender"),
                             msg.getString("content")
                     );
-                    tm.setTimestamp(Instant.parse(msg.getString("timestamp")));
-                    addMessageToUI(tm, tm.getSender().equals(currentUser));
-                }
-                else if ("voice".equals(msg.getString("type"))) {
+                    tm.setTimestamp(timestamp);
+                    messageHistory.add(tm);
+                } else if ("voice".equals(msg.getString("type"))) {
                     VoiceMessage vm = new VoiceMessage(
                             msg.getString("sender"),
                             Base64.getDecoder().decode(msg.getString("data")),
                             msg.getLong("duration")
                     );
-                    vm.setTimestamp(Instant.parse(msg.getString("timestamp")));
-                    addMessageToUI(vm, vm.getSender().equals(currentUser));
+                    vm.setTimestamp(timestamp);
+                    messageHistory.add(vm);
                 }
             }
         } catch (Exception e) {
@@ -434,4 +470,3 @@ public class ChatController {
         }
     }
 }
-
