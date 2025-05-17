@@ -21,15 +21,12 @@ import shared.Message;
 import shared.TextMessage;
 import shared.VoiceMessage;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.Duration;
 import java.util.Base64;
-import java.util.zip.GZIPInputStream;
-import java.util.zip.GZIPOutputStream;
 
 public class ChatController {
     @FXML private TextField usernameField;
@@ -372,7 +369,6 @@ public class ChatController {
                 JSONObject json = new JSONObject();
 
                 if (msg instanceof TextMessage) {
-                    // Без изменений для текста
                     TextMessage tm = (TextMessage) msg;
                     json.put("type", "text");
                     json.put("sender", tm.getSender());
@@ -384,63 +380,53 @@ public class ChatController {
                     json.put("type", "voice");
                     json.put("sender", vm.getSender());
                     json.put("duration", vm.getDurationMs());
-                    json.put("data", vm.getAudioData()); // Сохраняем напрямую массив байтов
+                    json.put("data", Base64.getEncoder().encodeToString(vm.getAudioData()));
                     json.put("timestamp", vm.getTimestamp().toString());
                 }
                 history.put(json);
             }
 
+            // Создаем папку history если её нет
             Path dir = Paths.get("history");
             if (!Files.exists(dir)) {
                 Files.createDirectories(dir);
             }
 
-            // Используем GZIP-сжатие
-            Path path = dir.resolve("chat_history.json.gz");
-            try (GZIPOutputStream gos = new GZIPOutputStream(Files.newOutputStream(path))) {
-                gos.write(history.toString(2).getBytes(StandardCharsets.UTF_8));
-            }
+            // Сохраняем в папку проекта
+            Path path = dir.resolve("chat_history.json");
+            Files.write(path, history.toString(2).getBytes());
         } catch (Exception e) {
             System.err.println("Ошибка сохранения истории: " + e.getMessage());
         }
     }
+
     private void loadHistory() {
         try {
-            Path path = Paths.get("history/chat_history.json.gz");
+            // Путь к файлу в папке проекта
+            Path path = Paths.get("history/chat_history.json");
             if (!Files.exists(path)) return;
 
-            // Чтение с GZIP-распаковкой
-            try (GZIPInputStream gis = new GZIPInputStream(Files.newInputStream(path))) {
-                String content = new String(gis.readAllBytes(), StandardCharsets.UTF_8);
-                JSONArray history = new JSONArray(content);
+            String content = new String(Files.readAllBytes(path));
+            JSONArray history = new JSONArray(content);
 
-                for (int i = 0; i < history.length(); i++) {
-                    JSONObject msg = history.getJSONObject(i);
-                    if ("text".equals(msg.getString("type"))) {
-                        // Без изменений для текста
-                        TextMessage tm = new TextMessage(
-                                msg.getString("sender"),
-                                msg.getString("content")
-                        );
-                        tm.setTimestamp(Instant.parse(msg.getString("timestamp")));
-                        addMessageToUI(tm, tm.getSender().equals(currentUser));
-                    }
-                    else if ("voice".equals(msg.getString("type"))) {
-                        // Преобразование JSONArray в byte[]
-                        JSONArray dataArray = msg.getJSONArray("data");
-                        byte[] data = new byte[dataArray.length()];
-                        for (int j = 0; j < dataArray.length(); j++) {
-                            data[j] = (byte) dataArray.getInt(j);
-                        }
-
-                        VoiceMessage vm = new VoiceMessage(
-                                msg.getString("sender"),
-                                data,
-                                msg.getLong("duration")
-                        );
-                        vm.setTimestamp(Instant.parse(msg.getString("timestamp")));
-                        addMessageToUI(vm, vm.getSender().equals(currentUser));
-                    }
+            for (int i = 0; i < history.length(); i++) {
+                JSONObject msg = history.getJSONObject(i);
+                if ("text".equals(msg.getString("type"))) {
+                    TextMessage tm = new TextMessage(
+                            msg.getString("sender"),
+                            msg.getString("content")
+                    );
+                    tm.setTimestamp(Instant.parse(msg.getString("timestamp")));
+                    addMessageToUI(tm, tm.getSender().equals(currentUser));
+                }
+                else if ("voice".equals(msg.getString("type"))) {
+                    VoiceMessage vm = new VoiceMessage(
+                            msg.getString("sender"),
+                            Base64.getDecoder().decode(msg.getString("data")),
+                            msg.getLong("duration")
+                    );
+                    vm.setTimestamp(Instant.parse(msg.getString("timestamp")));
+                    addMessageToUI(vm, vm.getSender().equals(currentUser));
                 }
             }
         } catch (Exception e) {
@@ -448,3 +434,4 @@ public class ChatController {
         }
     }
 }
+
