@@ -1,6 +1,5 @@
 package shared;
 
-import java.util.Arrays;
 import java.util.Base64;
 
 public class VoiceMessage extends Message {
@@ -41,11 +40,8 @@ public class VoiceMessage extends Message {
     }
 
     public String toHistoryJson() {
-        // Заменяем Base64 на прямое сохранение байтов
-        return String.format("{\"type\":\"voice\",\"sender\":\"%s\",\"durationMs\":%d,\"audioData\":%s,\"timestamp\":\"%s\"}",
-                sender,
-                durationMs,
-                Arrays.toString(audioData), // Сохраняем как массив байтов
-                timestamp);
+        return String.format("{\"type\":\"voice\",\"sender\":\"%s\",\"durationMs\":%d,\"audioData\":\"%s\",\"timestamp\":\"%s\"}",
+                sender, durationMs, Base64.getEncoder().encodeToString(audioData), timestamp);
     }
 }
+
