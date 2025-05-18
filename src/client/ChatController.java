@@ -18,6 +18,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONException;
 import shared.Message;
+import shared.SystemMessage;
 import shared.TextMessage;
 import shared.VoiceMessage;
 import java.net.URI;
@@ -45,27 +46,6 @@ public class ChatController {
     private JSONObject lastVoiceMetadata;
     private Timeline recordingTimer;
     private ObservableList<Message> messageHistory = FXCollections.observableArrayList();
-
-    private static class SystemMessage extends Message {
-        private final String text;
-
-        public SystemMessage(String text) {
-            super("system");
-            this.text = text;
-        }
-
-        public String getText() {
-            return text;
-        }
-
-        @Override
-        public String toJson() {
-            return new JSONObject()
-                    .put("type", "system")
-                    .put("content", text)
-                    .toString();
-        }
-    }
 
     @FXML
     private void initialize() {

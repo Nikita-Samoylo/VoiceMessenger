@@ -11,7 +11,6 @@ public class Main extends Application {
 
     @Override
     public void start(Stage primaryStage) throws Exception {
-        // Загружаем FXML с сохранением ссылки на контроллер
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/chat.fxml"));
         Parent root = loader.load();
         chatController = loader.getController();
