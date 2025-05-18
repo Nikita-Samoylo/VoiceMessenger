@@ -10,10 +10,10 @@
     -fx-cursor: hand;
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 1);
     -fx-font-weight: bold;
-    -fx-padding: 8 20 8 20; /* Увеличено padding для кнопок */
+    -fx-padding: 8 20 8 20;
     -fx-background-radius: 5;
     -fx-border-radius: 5;
-    -fx-min-width: 100px; /* Минимальная ширина кнопок */
+    -fx-min-width: 100px;
 }
 
 .button:hover {
@@ -28,18 +28,18 @@
 #recordButton {
     -fx-background-color: #ff4444;
     -fx-text-fill: white;
-    -fx-min-width: 120px; /* Ширина кнопки записи */
+    -fx-min-width: 120px;
 }
 
-/* Стили для текстовых полей - ОСНОВНЫЕ ИЗМЕНЕНИЯ ЗДЕСЬ */
+
 .text-field {
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 3, 0, 0, 1);
     -fx-background-radius: 15;
-    -fx-padding: 8 15 8 15; /* Увеличенный padding */
-    -fx-min-width: 400px;   /* Минимальная ширина */
-    -fx-pref-width: 500px;  /* Предпочтительная ширина */
-    -fx-max-width: 600px;   /* Максимальная ширина */
-    -fx-font-size: 14px;    /* Увеличенный размер шрифта */
+    -fx-padding: 8 15 8 15;
+    -fx-min-width: 400px;
+    -fx-pref-width: 500px;
+    -fx-max-width: 600px;
+    -fx-font-size: 14px;
 }
 
 /* Стили для списка сообщений */
@@ -68,31 +68,31 @@
 #charCountLabel {
     -fx-font-size: 12px;
     -fx-font-weight: bold;
-    -fx-padding: 8 10 8 0; /* Увеличенный padding */
+    -fx-padding: 8 10 8 0;
     -fx-text-fill: #555;
 }
 
 #recordingTimeLabel {
     -fx-font-size: 13px;
     -fx-font-weight: bold;
-    -fx-padding: 8 0 8 15; /* Увеличенный padding */
+    -fx-padding: 8 0 8 15;
     -fx-text-fill: #666;
 }
 
 /* Контейнеры для сообщений */
 .message-container {
-    -fx-padding: 8 12 8 12; /* Увеличенный padding */
+    -fx-padding: 8 12 8 12;
 }
 
 /* Стили для нижней панели */
 .bottom-panel {
     -fx-background-color: #e9e9e9;
-    -fx-padding: 12px; /* Увеличенный padding */
+    -fx-padding: 12px;
     -fx-background-radius: 5;
-    -fx-spacing: 12px; /* Увеличенный spacing */
+    -fx-spacing: 12px;
 }
 
-/* Дополнительные стили для улучшения компоновки */
+
 .message-input-container {
     -fx-spacing: 12px;
     -fx-alignment: center-left;
@@ -105,7 +105,7 @@
     -fx-padding: 5px 0 5px 10px;
 }
 
-/* Адаптивные стили */
+
 @media (max-width: 600px) {
     .text-field {
         -fx-min-width: 300px;
@@ -120,6 +120,17 @@
 
     #recordButton {
         -fx-min-width: 100px;
+    }
+
+    #clearHistoryButton {
+        -fx-background-color: #ff4444;
+        -fx-text-fill: white;
+        -fx-padding: 5 15 5 15;
+        -fx-background-radius: 5;
+    }
+
+    #clearHistoryButton:hover {
+        -fx-background-color: #cc0000;
     }
 }
 

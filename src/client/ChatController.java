@@ -1,5 +1,12 @@
 package client;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
+import java.util.Optional;
 import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -30,13 +37,20 @@ import java.time.Duration;
 import java.util.Base64;
 
 public class ChatController {
-    @FXML private TextField usernameField;
-    @FXML private TextField messageField;
-    @FXML private Button sendButton;
-    @FXML private ToggleButton recordButton;
-    @FXML private ListView<Message> messagesList;
-    @FXML private Label charCountLabel;
-    @FXML private Label recordingTimeLabel;
+    @FXML
+    private TextField usernameField;
+    @FXML
+    private TextField messageField;
+    @FXML
+    private Button sendButton;
+    @FXML
+    private ToggleButton recordButton;
+    @FXML
+    private ListView<Message> messagesList;
+    @FXML
+    private Label charCountLabel;
+    @FXML
+    private Label recordingTimeLabel;
 
     private static final Duration MESSAGE_MAX_AGE = Duration.ofDays(3);
     private Timeline cleanupTimer;
@@ -65,7 +79,7 @@ public class ChatController {
         sendButton.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white;");
 
         charCountLabel.setText(TextMessage.MAX_TEXT_LENGTH + "/" + TextMessage.MAX_TEXT_LENGTH);
-        recordingTimeLabel.setText("0/" + (VoiceMessage.MAX_AUDIO_DURATION_MS/1000) + "с");
+        recordingTimeLabel.setText("0/" + (VoiceMessage.MAX_AUDIO_DURATION_MS / 1000) + "с");
         recordingTimeLabel.setVisible(false);
     }
 
@@ -272,13 +286,13 @@ public class ChatController {
             ).getSeconds();
 
             recordingTimeLabel.setText(elapsedSeconds + "/" +
-                    (VoiceMessage.MAX_AUDIO_DURATION_MS/1000) + "с");
+                    (VoiceMessage.MAX_AUDIO_DURATION_MS / 1000) + "с");
 
-            if (elapsedSeconds >= VoiceMessage.MAX_AUDIO_DURATION_MS/1000 - 5) {
+            if (elapsedSeconds >= VoiceMessage.MAX_AUDIO_DURATION_MS / 1000 - 5) {
                 recordingTimeLabel.setTextFill(Color.RED);
             }
 
-            if (elapsedSeconds >= VoiceMessage.MAX_AUDIO_DURATION_MS/1000) {
+            if (elapsedSeconds >= VoiceMessage.MAX_AUDIO_DURATION_MS / 1000) {
                 Platform.runLater(() -> {
                     recordButton.setSelected(false);
                     stopRecordingAndSend();
@@ -304,7 +318,7 @@ public class ChatController {
         if (result.getDurationMs() > VoiceMessage.MAX_AUDIO_DURATION_MS ||
                 result.getAudioData().length > VoiceMessage.MAX_AUDIO_SIZE_BYTES) {
             addSystemMessage("Голосовое сообщение слишком длинное (максимум " +
-                    VoiceMessage.MAX_AUDIO_DURATION_MS/1000 + " секунд)");
+                    VoiceMessage.MAX_AUDIO_DURATION_MS / 1000 + " секунд)");
             return;
         }
 
@@ -447,6 +461,34 @@ public class ChatController {
             }
         } catch (Exception e) {
             System.err.println("Ошибка загрузки истории: " + e.getMessage());
+        }
+
+    }
+
+    @FXML
+    private void handleClearHistory() {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Подтверждение удаления");
+        alert.setHeaderText("Удаление всей истории сообщений");
+        alert.setContentText("Вы уверены, что хотите безвозвратно удалить всю историю чата?");
+
+        Optional<ButtonType> result = alert.showAndWait();
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            try {
+                // Очистка текущей истории
+                messageHistory.clear();
+
+                // Удаление файла истории
+                Path historyFile = Paths.get("history/chat_history.json");
+                if (Files.exists(historyFile)) {
+                    Files.delete(historyFile);
+                    addSystemMessage("История сообщений успешно удалена");
+                }
+                
+            } catch (IOException e) {
+                System.err.println("Ошибка удаления истории: " + e.getMessage());
+                addSystemMessage("Ошибка при удалении истории: " + e.getMessage());
+            }
         }
     }
 }

@@ -16,6 +16,9 @@
     <HBox spacing="10" style="-fx-background-color: #4CAF50; -fx-padding: 10; -fx-background-radius: 5;">
         <Label text="Имя пользователя:" style="-fx-text-fill: white; -fx-font-weight: bold;"/>
         <TextField fx:id="usernameField" promptText="Введите ваше имя" style="-fx-background-radius: 15; -fx-padding: 5;"/>
+        <Button fx:id="clearHistoryButton" text="🗑️ Очистить историю"
+                onAction="#handleClearHistory"
+                style="-fx-background-color: #ff4444; -fx-text-fill: white; -fx-background-radius: 5;"/>
     </HBox>
 
     <ListView fx:id="messagesList" style="-fx-background-color: white; -fx-border-color: #ddd; -fx-border-radius: 5; -fx-background-radius: 5;"
