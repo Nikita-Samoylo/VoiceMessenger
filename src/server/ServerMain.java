@@ -15,7 +15,7 @@ public class ServerMain {
             System.out.println("✅ Server running at ws://localhost:8080/chat");
             System.out.println("⏹ Press Enter to stop...");
 
-            //Для отладки
+
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 System.out.println("Shutting down server...");
                 server.stop();

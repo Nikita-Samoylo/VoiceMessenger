@@ -29,9 +29,6 @@ import shared.SystemMessage;
 import shared.TextMessage;
 import shared.VoiceMessage;
 import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.Duration;
 import java.util.Base64;
@@ -292,7 +289,7 @@ public class ChatController {
                 recordingTimeLabel.setTextFill(Color.RED);
             }
 
-            if (elapsedSeconds >= VoiceMessage.MAX_AUDIO_DURATION_MS / 1000) {
+            if (elapsedSeconds >= VoiceMessage.MAX_AUDIO_DURATION_MS / 1000-1) {
                 Platform.runLater(() -> {
                     recordButton.setSelected(false);
                     stopRecordingAndSend();

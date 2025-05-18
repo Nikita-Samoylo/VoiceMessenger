@@ -6,7 +6,7 @@ public class VoiceMessage extends Message {
     private byte[] audioData;
     private long durationMs;
     public static final int MAX_AUDIO_DURATION_MS = 30000; // 30 секунд максимум
-    public static final int MAX_AUDIO_SIZE_BYTES = 1024 * 1024; // 1MB максимум
+    public static final int MAX_AUDIO_SIZE_BYTES = 2_621_440; // 1MB максимум
 
     public VoiceMessage(String sender, byte[] audioData, long durationMs) {
         super(sender);
